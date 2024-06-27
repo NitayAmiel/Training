@@ -156,7 +156,7 @@ class UDP_server : public server{
 int UDP_server :: send(string message) {
     socklen_t len = sizeof(m_cliaddr);
     int sent = sendto(m_socket_fd, message.c_str(), message.size(), 0, (const struct sockaddr *)&m_cliaddr, len);
-    std :: cout << "sent  " << sent << " number of bytes\n";
+    std :: cout << "sent succesfully " << sent << "number of bytes\n";
     return sent;
 }
 
@@ -165,7 +165,7 @@ int UDP_server :: recieve() {
     socklen_t len = sizeof(cliaddr);
     int n;
     char buffer[MAX_DATA_SIZE];
-    n = recvfrom(m_socket_fd,buffer,MAX_DATA_SIZE,0, (struct sockaddr *)&cliaddr, &len);
+    n = recvfrom(m_socket_fd, (char *)buffer,MAX_DATA_SIZE, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
     buffer[n] = '\0';
     string ip_address_client = extract_ip_address((struct sockaddr *)&cliaddr);
     std::cout << "Client " << ip_address_client << "sent " << buffer << std::endl;
@@ -257,7 +257,7 @@ int sending(string message, int sock){
 int main(int argc, char *argv[]){
     
     std :: vector<string> arguments;
-    for(unsigned int i = 0; i < argc; i++){
+    for(unsigned int i = 1; i < argc; i++){
         arguments.push_back(string(argv[i]));
     }
     if(arguments.size() < 3){
@@ -268,7 +268,7 @@ int main(int argc, char *argv[]){
     type Type_Net = (arguments[2].compare("TCP") == 0) ? TCP : UDP; 
     if(arguments.at(1) == "CL"){
         std::cout << "starting initalizing client\n";
-        client* cl_1 = new client(Type_Net, argv[3], CLIENT, argv[4]);
+        client* cl_1 = new client(Type_Net, argv[3], CLIENT, argv[2]);
         cl_1->init();
         cl_1->traffic(cl_1->get_ip());
         delete cl_1;
@@ -277,7 +277,7 @@ int main(int argc, char *argv[]){
     else {
         if(Type_Net == TCP){
             std::cout << "got here";
-            TCP_server* ser1 = new TCP_server(TCP, argv[3], SERVER, "");
+            TCP_server* ser1 = new TCP_server(TCP, argv[2], SERVER, "");
             ser1->init();
             ser1->make_connection();
             delete ser1;
@@ -285,7 +285,7 @@ int main(int argc, char *argv[]){
         }else {
             std::cout << "got here1";
 
-            UDP_server *ser2 = new UDP_server(UDP, argv[3], SERVER, "");
+            UDP_server *ser2 = new UDP_server(UDP, argv[2], SERVER, "");
             ser2->init();
             ser2->traffic("someone");
             delete ser2;
