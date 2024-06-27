@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string>
+#include <vector>
 #include <cstring>
 #include <sys/types.h>
 //#include <winsock.h>
@@ -13,8 +14,6 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
-/*
-*/
 #include <iostream>
 using namespace std;
 const unsigned int MAX_DATA_SIZE = 100;
@@ -25,9 +24,13 @@ int sending(string message, int sock);
 typedef enum type{
     TCP,UDP
 } TYPE;
+
+
 typedef enum type1{
     CLIENT, SERVER
 } TYPE_CL_SER;
+
+
 class Socket{
     protected:
         string m_ip;    
@@ -52,7 +55,7 @@ Socket :: Socket(TYPE type, string port, TYPE_CL_SER type_cl_ser, string ip) : m
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = m_type == TCP ? SOCK_STREAM : SOCK_DGRAM;
     hints.ai_flags = m_type == TCP ? AI_PASSIVE : 0; // use my IP in server
-    res = m_type == TCP ? getaddrinfo(NULL, m_port.c_str(), &hints, &m_information) :getaddrinfo(m_ip.c_str(), m_port.c_str(), &hints, &m_information);
+    res = m_type_cl_ser == SERVER ? getaddrinfo(NULL, m_port.c_str(), &hints, &m_information) :getaddrinfo(m_ip.c_str(), m_port.c_str(), &hints, &m_information);
 	if (res != 0) {
 		perror("get address problem");
 		exit(1);
@@ -79,6 +82,7 @@ class client : public Socket{
 string client :: get_ip(){
     return this->m_ip;
 }
+
 int client :: init(){    
     for ( ; m_information != NULL; m_information = m_information->ai_next) {
         if ((m_socket_fd = socket(m_information->ai_family, m_information->ai_socktype, m_information->ai_protocol)) == -1) {
@@ -96,6 +100,7 @@ int client :: init(){
         perror("connect");
         exit(1);
     }
+    return 0;
 }
 
 /////////////////////////////////
@@ -112,11 +117,14 @@ string extract_ip_address(struct sockaddr *their_addr) {
     return  string(ip_address);
 }
 //////////////////////////
+
+
 class server : public Socket{
     public:
         server(TYPE type, string port, TYPE_CL_SER type_cl_ser, string ip) : Socket(type, port, type_cl_ser, ip) {}
         virtual int init() override;
 };
+
 int server:: init(){    
     int yes = 1;
     for ( ; m_information != NULL; m_information = m_information->ai_next) {
@@ -135,6 +143,33 @@ int server:: init(){
         }
         break; // If we get here, we must have connected successfully
     }
+    return 0;
+}
+class UDP_server : public server{
+    struct sockaddr_in* m_cliaddr;
+    //std :: map<string, sockaddr_in> m_clients;
+    public:
+    UDP_server(TYPE type, string port, TYPE_CL_SER type_cl_ser, string ip) : server(type, port, type_cl_ser, ip) , m_cliaddr(nullptr){}
+    int recieve() override;
+    virtual int send(string message) override;
+};
+int UDP_server :: send(string message) {
+    socklen_t len = sizeof(m_cliaddr);
+    int sent = sendto(m_socket_fd, message.c_str(), message.size(), 0, (const struct sockaddr *)&m_cliaddr, len);
+    std :: cout << "sent  " << sent << " number of bytes\n";
+    return sent;
+}
+
+int UDP_server :: recieve() {
+    struct sockaddr_in cliaddr;
+    socklen_t len = sizeof(cliaddr);
+    int n;
+    char buffer[MAX_DATA_SIZE];
+    n = recvfrom(m_socket_fd,buffer,MAX_DATA_SIZE,0, (struct sockaddr *)&cliaddr, &len);
+    buffer[n] = '\0';
+    string ip_address_client = extract_ip_address((struct sockaddr *)&cliaddr);
+    std::cout << "Client " << ip_address_client << "sent " << buffer << std::endl;
+    return n;
 }
 
 ////////////////////////
@@ -145,18 +180,20 @@ class TCP_server : public server{
     int make_connection();
 
 };
+
 void Socket :: traffic(string ip_adress){
     char res;
     while(1){
         std :: cout << "do you want to [R] recieve from or [S] send to, or [T] terminate the traffic with "<< ip_adress << std :: endl;
         std :: cin >> res;
-        if(res == 'R'){
-            this->recieve();
-        }else if(res == 'S'){
+        if(res == 'S'){
             std :: cout << "What to send? (max is " << MAX_DATA_SIZE << " )\n";
             string s;
             std :: cin >> s ;
             this->send(s);
+        }
+        else if(res == 'R'){
+            this->recieve();
         }else if(res == 'T'){
             break;
         }else{
@@ -215,31 +252,43 @@ int sending(string message, int sock){
     return sent;
 }
 //#include "Socket.cpp"
-#include <iostream>
 
 
 int main(int argc, char *argv[]){
-    if(string(argv[1])== "CL"){
+    
+    std :: vector<string> arguments;
+    for(unsigned int i = 0; i < argc; i++){
+        arguments.push_back(string(argv[i]));
+    }
+    if(arguments.size() < 3){
+        perror("missing arguments\n");
+        return 0;
+    }
+
+    type Type_Net = (arguments[2].compare("TCP") == 0) ? TCP : UDP; 
+    if(arguments.at(1) == "CL"){
         std::cout << "starting initalizing client\n";
-        client* cl_1 = new client(TCP, argv[3], CLIENT, argv[2]);
-        std::cout << "got here1" << std::endl;
+        client* cl_1 = new client(Type_Net, argv[3], CLIENT, argv[4]);
         cl_1->init();
         cl_1->traffic(cl_1->get_ip());
+        delete cl_1;
         return 0;
     }
-    else if(string(argv[1])== "SER"){
-        TCP_server* ser1 = new TCP_server(TCP, argv[2], SERVER, "");
-        ser1->init();
-        ser1->make_connection();
-        std::cout << "got here2" << std::endl;
-        return 0;
-    }
-    if(argv[1] == "TCP"){
-        //
-    }
-    if(argv[1] == "UDP"){
-        //
+    else {
+        if(Type_Net == TCP){
+            std::cout << "got here";
+            TCP_server* ser1 = new TCP_server(TCP, argv[3], SERVER, "");
+            ser1->init();
+            ser1->make_connection();
+            delete ser1;
+            return 0;
+        }else {
+            std::cout << "got here1";
 
+            UDP_server *ser2 = new UDP_server(UDP, argv[3], SERVER, "");
+            ser2->init();
+            ser2->traffic("someone");
+            delete ser2;
+        }
     }
-
 }
