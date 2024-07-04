@@ -1,5 +1,6 @@
 #include <iostream>
-#include "Connection.cpp"
+#include "Server.h"
+#include "Client.h"
 
 
 

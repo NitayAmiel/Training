@@ -41,28 +41,10 @@ SERVER
 
 int recieving(int sock);
 int sending(string message, int sock);
+string extract_ip_address(struct sockaddr *their_addr);
+string GetMessage();
 
-string extract_ip_address(struct sockaddr *their_addr) {
-    // Assuming IPv4
-    struct sockaddr_in *ipv4_addr = (struct sockaddr_in *)their_addr;
-    char ip_address[INET_ADDRSTRLEN];
-
-    // Convert network address to presentation format
-    inet_ntop(AF_INET, &(ipv4_addr->sin_addr), ip_address, INET_ADDRSTRLEN);
-    return  string(ip_address);
-}
-
-string GetMessage(){
-    std :: cout << "What to send? (max is " << MAX_DATA_SIZE << " )\n";
-    string response;
-    getline(cin, response);
-    if(response.size() > MAX_DATA_SIZE){
-        std :: cout << "too big message\n";
-        return "";
-    }
-    return response;
-}
-
+////////////////////
 class Socket{
     protected:
         string m_ip;    
