@@ -1,11 +1,5 @@
 
-#include <Connection.cpp>
-
-class server : public Socket{
-    public:
-        server(TYPE type, string port, TYPE_CL_SER type_cl_ser, string ip) : Socket(type, port, type_cl_ser, ip) {}
-        virtual int init() override;
-};
+#include "Server.h"
 
 int server:: init(){    
     int yes = 1;
@@ -29,14 +23,6 @@ int server:: init(){
 }
 
 
-class UDP_server : public server{
-    struct sockaddr_in* m_cliaddr;
-    public:
-        UDP_server(TYPE type, string port, TYPE_CL_SER type_cl_ser, string ip) : server(type, port, type_cl_ser, ip) , m_cliaddr(nullptr){}
-        int recieve() override;
-        virtual int send(string message) override;
-        void replying();
-};
 int UDP_server :: send(string message) {
     socklen_t len = sizeof(m_cliaddr);
     int sent = sendto(m_socket_fd, message.c_str(), message.size(), 0, (const struct sockaddr *)&m_cliaddr, len);
@@ -50,17 +36,17 @@ int UDP_server :: recieve() {
     char buffer[MAX_DATA_SIZE];
     int number_of_bytes = recvfrom(m_socket_fd,buffer,MAX_DATA_SIZE,0, (struct sockaddr *)&cliaddr, &len);
     buffer[number_of_bytes] = '\0';
-    string ip_address_client = extract_ip_address((struct sockaddr *)&cliaddr);
+    string ip_address_client = extract_ip_address((struct sockaddr )&cliaddr);
     std::cout << "Client " << ip_address_client << "sent " << buffer << std::endl;
     this->replying();
     return number_of_bytes;
 }
 
 void UDP_server :: replying(){
-    string respone;
+    string response;
     while(1){
         response.clear();
-        std :: cout << "do you want to reply something to " << extract_ip_address(m_cliaddr) << " [Y or n]?" endl;
+        std :: cout << "do you want to reply something to " << extract_ip_address((const struct sockaddr *)&m_cliaddr) << " [Y or n]?" endl;
         getline(cin, response);
         if(response.empty() || response[0] != 'Y' || response[0] != 'n') continue;
         if(response[0] == 'n') break;
@@ -69,13 +55,6 @@ void UDP_server :: replying(){
     }
 }
 ////////////////////////
-class TCP_server : public server{
-    public:
-    TCP_server(TYPE type, string port, TYPE_CL_SER type_cl_ser, string ip) : server(type, port, type_cl_ser, ip) {}
-    int make_connection();
-
-};
-
 
 int TCP_server::make_connection(){
     if (listen(m_socket_fd, 10) == -1) {
